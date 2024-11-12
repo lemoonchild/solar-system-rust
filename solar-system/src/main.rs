@@ -336,7 +336,7 @@ fn main() {
 
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
     let mut window = Window::new(
-        "Rust Graphics - Planet Shader - Press 1-7 to switch",
+        "Rust Graphics - Solar System Final Project",
         window_width,
         window_height,
         WindowOptions::default(),
@@ -401,6 +401,16 @@ fn main() {
         Vec3::new(65.0, 0.0, 0.0)  // Urano
     ];
 
+    let scales = vec![
+        2.0,  // Escala para el Sol (más grande)
+        0.5,  // Escala para Mercurio
+        0.8,  // Escala para la Tierra
+        0.5,  // Escala para Marte
+        1.5,  // Escala para Júpiter
+        0.8,  // Escala para Saturno
+        0.6   // Escala para Urano
+    ];
+
     // Definimos los shaders de cada planeta en el orden correcto
     let shaders = vec![7, 3, 1, 2, 5, 4, 6];
 
@@ -420,6 +430,7 @@ fn main() {
 
         for (i, position) in planet_positions.iter().enumerate() {
             uniforms.current_shader = shaders[i];  // Usamos el shader correspondiente según el orden
+            let scale = scales[i];  // Asegúrate de usar la escala correcta
             uniforms.model_matrix = create_model_matrix(*position, scale, rotation);
     
             if shaders[i] == 2 {  // Marte con luna
@@ -435,12 +446,11 @@ fn main() {
             } else if shaders[i] == 4 {  // Saturno con anillos
                 render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
                 // Anillos de Saturno
-                let ring_scale = scale * 1.5;
+                let ring_scale = scale * 1.5; // Ajusta la escala de los anillos
                 uniforms.current_shader = 9;
                 uniforms.model_matrix = create_model_matrix(*position, ring_scale, Vec3::new(0.0, 0.0, 0.0));
                 render(&mut framebuffer, &uniforms, &ring_vertex_array, time as u32);
-            } else if shaders[i] == 7 {
-
+            } else if shaders[i] == 7 { // Sol con efecto Bloom
                 render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
                 // Aplicar Gaussian Blur al buffer emisivo
                 let kernel_size = 10; // Tamaño del kernel para un desenfoque más suave y amplio
