@@ -411,8 +411,20 @@ fn main() {
         0.6   // Escala para Urano
     ];
 
+    let orbital_speeds = vec![
+        0.0,   // Sol (estático)
+        0.5,  // Mercurio
+        0.3,  // Venus (asumiendo que quieres agregarlo, ajusta según sea necesario)
+        0.2,  // Tierra
+        0.1,  // Marte
+        0.03,  // Júpiter
+        0.05, // Saturno
+        0.08  // Urano
+    ];
+
     // Definimos los shaders de cada planeta en el orden correcto
     let shaders = vec![7, 3, 1, 2, 5, 4, 6];
+    let mut orbital_angles = vec![0.0; shaders.len()]; 
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let delta_time = last_frame_time.elapsed();
@@ -428,32 +440,43 @@ fn main() {
         uniforms.view_matrix = create_view_matrix(camera.eye, camera.center, camera.up);
         uniforms.time = time as u32;
 
-        for (i, position) in planet_positions.iter().enumerate() {
-            uniforms.current_shader = shaders[i];  // Usamos el shader correspondiente según el orden
-            let scale = scales[i];  // Asegúrate de usar la escala correcta
-            uniforms.model_matrix = create_model_matrix(*position, scale, rotation);
-    
+        // Actualiza y calcula las posiciones basadas en las órbitas
+        for (i, original_position) in planet_positions.iter().enumerate() {
+            // Actualizar el ángulo orbital
+            orbital_angles[i] += orbital_speeds[i] * delta_time.as_secs_f32(); // Asumiendo que orbital_speeds está definido
+
+            // Calcular la nueva posición usando coordenadas polares
+            let orbit_radius = original_position.x;  // Asumiendo que x es el radio de la órbita
+            let x = orbit_radius * orbital_angles[i].cos();
+            let z = orbit_radius * orbital_angles[i].sin();
+            let position = Vec3::new(x, 0.0, z); // Asumiendo una órbita plana en el plano xz
+
+            uniforms.current_shader = shaders[i];
+            let scale = scales[i];  // Usa la escala apropiada para cada planeta
+            uniforms.model_matrix = create_model_matrix(position, scale, rotation);
+
+            // Renderizado de planetas y lunas
             if shaders[i] == 2 {  // Marte con luna
                 render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
-                // Calcular y renderizar la luna de Marte usando una traslación relativa
+                // Calcular y renderizar la luna de Marte
                 let moon_angle = time as f32 * moon_orbit_speed;
                 let moon_x = moon_distance * moon_angle.cos();
                 let moon_z = moon_distance * moon_angle.sin();
-                let moon_translation = Vec3::new(moon_x, 0.0, moon_z) + *position;  // Posición relativa a Marte
+                let moon_translation = Vec3::new(moon_x, 0.0, moon_z) + position; // Posición relativa a Marte
                 uniforms.current_shader = 8;  // Shader de la luna
                 uniforms.model_matrix = create_model_matrix(moon_translation, moon_scale, Vec3::new(0.0, 0.0, 0.0));
                 render(&mut framebuffer, &uniforms, &moon_vertex_array, time as u32);
             } else if shaders[i] == 4 {  // Saturno con anillos
                 render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
                 // Anillos de Saturno
-                let ring_scale = scale * 1.5; // Ajusta la escala de los anillos
+                let ring_scale = scale * 1.5; // Escala de los anillos
                 uniforms.current_shader = 9;
-                uniforms.model_matrix = create_model_matrix(*position, ring_scale, Vec3::new(0.0, 0.0, 0.0));
+                uniforms.model_matrix = create_model_matrix(position, ring_scale, Vec3::new(0.0, 0.0, 0.0));
                 render(&mut framebuffer, &uniforms, &ring_vertex_array, time as u32);
             } else if shaders[i] == 7 { // Sol con efecto Bloom
                 render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
                 // Aplicar Gaussian Blur al buffer emisivo
-                let kernel_size = 10; // Tamaño del kernel para un desenfoque más suave y amplio
+                let kernel_size = 10; // Tamaño del kernel para un desenfoque más suave
                 let sigma = 2.5; // Sigma para un buen efecto de bloom
                 gaussian_blur(&mut framebuffer.emissive_buffer, framebuffer.width, framebuffer.height, kernel_size, sigma);
                 // Aplicar Bloom
