@@ -132,6 +132,15 @@ fn create_urano_noise() -> FastNoiseLite {
     noise
 }
 
+fn calculate_orbit_position(time: f32, orbit_speed: f32, orbit_radius: f32) -> Vec3 {
+    let angle = time * orbit_speed;
+    Vec3::new(
+        orbit_radius * angle.cos(),
+        0.0,  // Asumiendo una órbita plana para simplificar
+        orbit_radius * angle.sin()
+    )
+}
+
 fn create_model_matrix(translation: Vec3, scale: f32, rotation: Vec3) -> Mat4 {
     let (sin_x, cos_x) = rotation.x.sin_cos();
     let (sin_y, cos_y) = rotation.y.sin_cos();
@@ -344,9 +353,9 @@ fn main() {
 
     // camera parameters
     let mut camera = Camera::new(
-        Vec3::new(0.0, 2.0, 10.0),
-        Vec3::new(0.0, 0.0, 0.0),
-        Vec3::new(0.0, 10.0, 0.0)
+        Vec3::new(0.0, 5.0, 40.0),
+        Vec3::new(22.5, 0.0, 0.0),
+        Vec3::new(0.0, 1.0, 0.0)
     );
 
     let obj = Obj::load("assets/models/sphere.obj").expect("Failed to load obj");
@@ -379,111 +388,69 @@ fn main() {
         current_shader: 1,
     };
 
-    let mut current_planet = 1; 
+    let planet_positions = vec![
+        Vec3::new(0.0, 0.0, 0.0),  // Sol
+        Vec3::new(8.0, 0.0, 0.0),  // Mercurio
+        Vec3::new(15.0, 0.0, 0.0),  // Tierra
+        Vec3::new(25.0, 0.0, 0.0),  // Marte
+        Vec3::new(35.0, 0.0, 0.0), // Júpiter
+        Vec3::new(50.0, 0.0, 0.0), // Saturno
+        Vec3::new(65.0, 0.0, 0.0)  // Urano
+    ];
+
+    // Definimos los shaders de cada planeta en el orden correcto
+    let shaders = vec![7, 3, 1, 2, 5, 4, 6];
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-
         let delta_time = last_frame_time.elapsed();
         last_frame_time = Instant::now();
         time += delta_time.as_millis() as u32;
-
-        let keys = window.get_keys_pressed(minifb::KeyRepeat::No);
-        for key in keys {
-            match key {
-                Key::Key1 => {
-                    current_planet = 1;
-                }
-                Key::Key2 => {
-                    current_planet = 2;
-                }
-                Key::Key3 => {
-                    current_planet = 3;
-                }
-                Key::Key4 => {
-                    current_planet = 4;
-                }
-                Key::Key5 => {
-                    current_planet = 5;
-                }
-                Key::Key6 => {
-                    current_planet = 6;
-                }
-                Key::Key7 => {
-                    current_planet = 7;
-                }
-                _ => {}
-            }
-        }
-
+    
         handle_input(&window, &mut camera);
         framebuffer.clear();
-        
-        uniforms.current_shader = current_planet;
-        uniforms.noise = create_noise(uniforms.current_shader);
-
+    
+        // Matriz de visión siempre actualizada
         uniforms.view_matrix = create_view_matrix(camera.eye, camera.center, camera.up);
         uniforms.time = time as u32;
 
-        if current_planet == 2 {
-            // Renderizar Marte
-            uniforms.current_shader = 2;
-            uniforms.model_matrix = create_model_matrix(translation, scale, rotation);
-            render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
-        
-            // Calcular y renderizar la luna de Marte
-            let moon_angle = time as f32 * moon_orbit_speed;
-            let moon_x = moon_distance * moon_angle.cos();
-            let moon_z = moon_distance * moon_angle.sin();
-        
-            let moon_translation = Vec3::new(moon_x, 0.0, moon_z);
-            let moon_model_matrix = create_model_matrix(moon_translation, moon_scale, Vec3::new(0.0, 0.0, 0.0));
-            uniforms.model_matrix = moon_model_matrix;
-        
-            let moon_shader_id = 8;
-            uniforms.current_shader = moon_shader_id;
-            render(&mut framebuffer, &uniforms, &moon_vertex_array, time as u32);
-        
-        } else if current_planet == 4 {
-            // Renderizar Saturno
-            uniforms.current_shader = 4;  // Shader para Saturno
-            uniforms.model_matrix = create_model_matrix(translation, scale, rotation);
-            render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
-        
-            // Renderizar los anillos de Saturno
-            uniforms.current_shader = 9;  // Shader para los anillos
-            let ring_translation = translation;  // Posición de los anillos
-            let ring_scale = scale * 1.5;  // Tamaño de los anillos (más grande que el planeta)
-            uniforms.model_matrix = create_model_matrix(ring_translation, ring_scale, Vec3::new(0.0, 0.0, 0.0));
-            render(&mut framebuffer, &uniforms, &ring_vertex_array, time as u32);  // Reutiliza `ring_vertex_array` para la geometría de los anillos
-        
-        } else if current_planet == 7{
-             // Configurar para renderizar el Sol
-            uniforms.current_shader = 7;
-            uniforms.model_matrix = create_model_matrix(translation, scale, rotation);
-            render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
-            
-            // Aplicar Gaussian Blur al buffer emisivo
-            // Asegúrate de que el kernel_size y sigma están correctamente configurados para tu necesidad
-            let kernel_size = 20; // Tamaño del kernel más grande para un desenfoque más suave y amplio
-            let sigma = 2.5; // Sigma para un desenfoque que produce un buen efecto de bloom
-            gaussian_blur(&mut framebuffer.emissive_buffer, framebuffer.width, framebuffer.height, kernel_size, sigma);
-            
-            // Aplicar Bloom
-            apply_bloom(&mut framebuffer.buffer, &framebuffer.emissive_buffer, framebuffer.width, framebuffer.height);
-            
-        } else {
-            // Renderizar otros planetas sin lunas
-            uniforms.model_matrix = create_model_matrix(translation, scale, rotation);
-            render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
-        }
-        
-        uniforms.model_matrix = create_model_matrix(translation, scale, rotation);
-        framebuffer.set_current_color(0xFFDDDD);
+        for (i, position) in planet_positions.iter().enumerate() {
+            uniforms.current_shader = shaders[i];  // Usamos el shader correspondiente según el orden
+            uniforms.model_matrix = create_model_matrix(*position, scale, rotation);
+    
+            if shaders[i] == 2 {  // Marte con luna
+                render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
+                // Calcular y renderizar la luna de Marte usando una traslación relativa
+                let moon_angle = time as f32 * moon_orbit_speed;
+                let moon_x = moon_distance * moon_angle.cos();
+                let moon_z = moon_distance * moon_angle.sin();
+                let moon_translation = Vec3::new(moon_x, 0.0, moon_z) + *position;  // Posición relativa a Marte
+                uniforms.current_shader = 8;  // Shader de la luna
+                uniforms.model_matrix = create_model_matrix(moon_translation, moon_scale, Vec3::new(0.0, 0.0, 0.0));
+                render(&mut framebuffer, &uniforms, &moon_vertex_array, time as u32);
+            } else if shaders[i] == 4 {  // Saturno con anillos
+                render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
+                // Anillos de Saturno
+                let ring_scale = scale * 1.5;
+                uniforms.current_shader = 9;
+                uniforms.model_matrix = create_model_matrix(*position, ring_scale, Vec3::new(0.0, 0.0, 0.0));
+                render(&mut framebuffer, &uniforms, &ring_vertex_array, time as u32);
+            } else if shaders[i] == 7 {
 
-        window
-        .update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height)
-        .unwrap();
-    }
+                render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
+                // Aplicar Gaussian Blur al buffer emisivo
+                let kernel_size = 10; // Tamaño del kernel para un desenfoque más suave y amplio
+                let sigma = 2.5; // Sigma para un buen efecto de bloom
+                gaussian_blur(&mut framebuffer.emissive_buffer, framebuffer.width, framebuffer.height, kernel_size, sigma);
+                // Aplicar Bloom
+                apply_bloom(&mut framebuffer.buffer, &framebuffer.emissive_buffer, framebuffer.width, framebuffer.height);
+            } else {
+                render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
+            }
+        }
+    
+        framebuffer.set_current_color(0xFFDDDD);
+        window.update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height).unwrap();
+    }    
 }
 
 fn handle_input(window: &Window, camera: &mut Camera) {
