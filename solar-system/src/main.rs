@@ -10,11 +10,13 @@ mod color;
 mod fragment;
 mod shaders;
 mod camera;
+mod skybox;
 
 use framebuffer::Framebuffer;
 use vertex::Vertex;
 use obj::Obj;
 use camera::Camera;
+use skybox::Skybox; 
 use triangle::triangle;
 use shaders::{vertex_shader, fragment_shader};
 use fastnoise_lite::{FastNoiseLite, NoiseType, FractalType};
@@ -344,10 +346,9 @@ fn main() {
     window.set_position(500, 500);
     window.update();
 
-    framebuffer.set_background_color(0x333355);
+    framebuffer.set_background_color(0x000000);
 
     // model position
-    let translation = Vec3::new(0.0, 0.0, 0.0);
     let rotation = Vec3::new(0.0, 0.0, 0.0);
     let scale = 1.0f32;
 
@@ -361,6 +362,8 @@ fn main() {
     let obj = Obj::load("assets/models/sphere.obj").expect("Failed to load obj");
     let moon = Obj::load("assets/models/moon.obj").expect("Failed to load obj");
     let ring_obj = Obj::load("assets/models/ring.obj").expect("Failed to load ring model");
+
+    let skybox = Skybox::new(5000);
 
     let vertex_arrays = obj.get_vertex_array(); 
     let moon_vertex_array = moon.get_vertex_array();
@@ -408,7 +411,9 @@ fn main() {
     
         handle_input(&window, &mut camera);
         framebuffer.clear();
-    
+
+        skybox.render(&mut framebuffer, &uniforms, camera.eye);
+
         // Matriz de visión siempre actualizada
         uniforms.view_matrix = create_view_matrix(camera.eye, camera.center, camera.up);
         uniforms.time = time as u32;
