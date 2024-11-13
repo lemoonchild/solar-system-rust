@@ -333,6 +333,11 @@ fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Ve
     }
 }
 
+fn check_collision(camera_pos: Vec3, planet_pos: Vec3, planet_radius: f32) -> bool {
+    let distance = (camera_pos - planet_pos).magnitude();
+    distance < (planet_radius + 5.0)  // 5.0 es un margen de seguridad
+}
+
 fn main() {
     let window_width = 680;
     let window_height = 800;
@@ -446,6 +451,14 @@ fn main() {
         handle_input(&window, &mut camera, system_center, &mut bird_eye_active, &mut app_state);
         framebuffer.clear();
 
+        // Verifica las colisiones antes de actualizar la posición de la cámara y renderizar los objetos
+        for (planet_pos, planet_radius) in planet_positions.iter().zip(scales.iter()) {
+            if check_collision(camera.eye, *planet_pos, *planet_radius) {
+                // Si hay colisión, reajustar la posición de la cámara
+                camera.prevent_collision(*planet_pos, *planet_radius);
+            }
+        }
+
         skybox.render(&mut framebuffer, &uniforms, camera.eye);
 
         // Matriz de visión siempre actualizada
@@ -507,7 +520,7 @@ fn handle_input(window: &Window, camera: &mut Camera, system_center: Vec3, bird_
     let movement_speed = 1.0;
     let rotation_speed = PI/50.0;
     let zoom_speed = 1.5;
-    let min_zoom_distance = 20.0; 
+    let min_zoom_distance = 25.0; 
 
     if let Some((mouse_x, mouse_y)) = window.get_mouse_pos(minifb::MouseMode::Pass) {
         if let Some((last_x, last_y)) = app_state.last_mouse_pos {
