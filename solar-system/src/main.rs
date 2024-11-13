@@ -403,10 +403,10 @@ fn main() {
 
     let planet_positions = vec![
         Vec3::new(0.0, 0.0, 0.0),  // Sol
-        Vec3::new(8.0, 0.0, 0.0),  // Mercurio
-        Vec3::new(12.0, 0.0, 0.0),  // Tierra
-        Vec3::new(22.0, 0.0, 0.0),  // Marte
-        Vec3::new(33.0, 0.0, 0.0), // Júpiter
+        Vec3::new(10.0, 0.0, 0.0),  // Mercurio
+        Vec3::new(15.0, 0.0, 0.0),  // Tierra
+        Vec3::new(25.0, 0.0, 0.0),  // Marte
+        Vec3::new(35.0, 0.0, 0.0), // Júpiter
         Vec3::new(45.0, 0.0, 0.0), // Saturno
         Vec3::new(60.0, 0.0, 0.0)  // Urano
     ];
@@ -426,9 +426,9 @@ fn main() {
         0.5,  // Mercurio
         0.2,  // Tierra
         0.1,  // Marte
-        0.03,  // Júpiter
-        0.04, // Saturno
-        0.05  // Urano
+        0.05,  // Júpiter
+        0.03, // Saturno
+        0.01  // Urano
     ]; 
 
     // Definimos los shaders de cada planeta en el orden correcto
@@ -507,8 +507,8 @@ fn handle_input(window: &Window, camera: &mut Camera, system_center: Vec3, bird_
     let movement_speed = 1.0;
     let rotation_speed = PI/50.0;
     let zoom_speed = 1.5;
+    let min_zoom_distance = 20.0; 
 
-    // Obteniendo posición actual del mouse
     if let Some((mouse_x, mouse_y)) = window.get_mouse_pos(minifb::MouseMode::Pass) {
         if let Some((last_x, last_y)) = app_state.last_mouse_pos {
             let delta_x = mouse_x - last_x;
@@ -518,10 +518,10 @@ fn handle_input(window: &Window, camera: &mut Camera, system_center: Vec3, bird_
         app_state.last_mouse_pos = Some((mouse_x, mouse_y));
     }
 
-    // Manejo de zoom con scroll del mouse
     let scroll = window.get_scroll_wheel();
     if let Some((_, scroll_y)) = scroll {
-        camera.zoom(scroll_y as f32 * zoom_speed);
+        let delta = scroll_y as f32 * zoom_speed;
+        camera.zoom(delta, min_zoom_distance);
     }
 
     //  camera orbit controls
@@ -558,10 +558,10 @@ fn handle_input(window: &Window, camera: &mut Camera, system_center: Vec3, bird_
 
     // Camera zoom controls
     if window.is_key_down(Key::Up) {
-        camera.zoom(zoom_speed);
+        camera.zoom(zoom_speed, min_zoom_distance);
     }
     if window.is_key_down(Key::Down) {
-        camera.zoom(-zoom_speed);
+        camera.zoom(-zoom_speed, min_zoom_distance);
     }
 
     // Cambio a vista aérea

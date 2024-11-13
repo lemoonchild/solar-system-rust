@@ -40,9 +40,12 @@ impl Camera {
     self.has_changed = true;
   }
 
-  pub fn zoom(&mut self, delta: f32) {
+  pub fn zoom(&mut self, delta: f32, min_distance: f32) {
     let direction = (self.center - self.eye).normalize();
-    self.eye += direction * delta;
+    let new_eye = self.eye + direction * delta;
+    if (self.center - new_eye).magnitude() > min_distance {
+        self.eye = new_eye;
+    }
     self.has_changed = true;
   }
 
@@ -69,4 +72,5 @@ impl Camera {
     self.up = Vec3::new(0.0, 0.0, -1.0);  // Ajusta 'up' para mirar hacia abajo
     self.has_changed = true;
   }
+
 }
