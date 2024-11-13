@@ -34,6 +34,11 @@ pub struct Uniforms {
     current_shader: u8, 
 }
 
+struct AppState {
+    last_mouse_pos: Option<(f32, f32)>,
+    bird_eye_active: bool,
+}
+
 fn create_noise(current_shader: u8) -> FastNoiseLite {
     match current_shader {
         1 => create_earth_noise(),
@@ -350,7 +355,6 @@ fn main() {
 
     // model position
     let rotation = Vec3::new(0.0, 0.0, 0.0);
-    let scale = 1.0f32;
 
     // camera parameters
     let mut camera = Camera::new(
@@ -358,6 +362,12 @@ fn main() {
         Vec3::new(22.5, 0.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0)
     );
+
+    // Aquí inicializamos el estado
+    let mut app_state = AppState {
+        last_mouse_pos: None,
+        bird_eye_active: false,
+    };
 
     let obj = Obj::load("assets/models/sphere.obj").expect("Failed to load obj");
     let moon = Obj::load("assets/models/moon.obj").expect("Failed to load obj");
@@ -419,7 +429,7 @@ fn main() {
         0.03,  // Júpiter
         0.04, // Saturno
         0.05  // Urano
-    ];
+    ]; 
 
     // Definimos los shaders de cada planeta en el orden correcto
     let shaders = vec![7, 3, 1, 2, 5, 4, 6];
@@ -433,7 +443,7 @@ fn main() {
         last_frame_time = Instant::now();
         time += delta_time.as_millis() as u32;
     
-        handle_input(&window, &mut camera, system_center, &mut bird_eye_active);
+        handle_input(&window, &mut camera, system_center, &mut bird_eye_active, &mut app_state);
         framebuffer.clear();
 
         skybox.render(&mut framebuffer, &uniforms, camera.eye);
@@ -493,10 +503,26 @@ fn main() {
     }    
 }
 
-fn handle_input(window: &Window, camera: &mut Camera, system_center: Vec3, bird_eye_active: &mut bool) {
+fn handle_input(window: &Window, camera: &mut Camera, system_center: Vec3, bird_eye_active: &mut bool, app_state: &mut AppState) {
     let movement_speed = 1.0;
     let rotation_speed = PI/50.0;
-    let zoom_speed = 0.1;
+    let zoom_speed = 1.5;
+
+    // Obteniendo posición actual del mouse
+    if let Some((mouse_x, mouse_y)) = window.get_mouse_pos(minifb::MouseMode::Pass) {
+        if let Some((last_x, last_y)) = app_state.last_mouse_pos {
+            let delta_x = mouse_x - last_x;
+            let delta_y = mouse_y - last_y;
+            camera.orbit(delta_x as f32 * rotation_speed, -delta_y as f32 * rotation_speed);
+        }
+        app_state.last_mouse_pos = Some((mouse_x, mouse_y));
+    }
+
+    // Manejo de zoom con scroll del mouse
+    let scroll = window.get_scroll_wheel();
+    if let Some((_, scroll_y)) = scroll {
+        camera.zoom(scroll_y as f32 * zoom_speed);
+    }
 
     //  camera orbit controls
     if window.is_key_down(Key::Left) {
