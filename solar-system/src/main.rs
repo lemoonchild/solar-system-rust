@@ -11,12 +11,14 @@ mod fragment;
 mod shaders;
 mod camera;
 mod skybox;
+mod frustum;
 
 use framebuffer::Framebuffer;
 use vertex::Vertex;
 use obj::Obj;
 use camera::Camera;
 use skybox::Skybox; 
+use frustum::{Frustum, Plane};
 use triangle::triangle;
 use shaders::{vertex_shader, fragment_shader};
 use fastnoise_lite::{FastNoiseLite, NoiseType, FractalType};
@@ -451,6 +453,14 @@ fn main() {
         handle_input(&window, &mut camera, system_center, &mut bird_eye_active, &mut app_state);
         framebuffer.clear();
 
+        // Calcula matrices de vista y proyección
+        let view_matrix = create_view_matrix(camera.eye, camera.center, camera.up);
+        let projection_matrix = create_perspective_matrix(window_width as f32, window_height as f32);
+
+        // Crea el frustum con la matriz combinada de vista y proyección
+        let vp_matrix = projection_matrix * view_matrix;
+        let frustum = Frustum::from_matrix(&vp_matrix);
+
         // Verifica las colisiones antes de actualizar la posición de la cámara y renderizar los objetos
         for (planet_pos, planet_radius) in planet_positions.iter().zip(scales.iter()) {
             if check_collision(camera.eye, *planet_pos, *planet_radius) {
@@ -480,35 +490,47 @@ fn main() {
             let scale = scales[i];  // Usa la escala apropiada para cada planeta
             uniforms.model_matrix = create_model_matrix(position, scale, rotation);
 
-            // Renderizado de planetas y lunas
+            // Renderizado de planetas y lunas con condiciones específicas
             if shaders[i] == 2 {  // Marte con luna
                 render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
+
                 // Calcular y renderizar la luna de Marte
                 let moon_angle = time as f32 * moon_orbit_speed;
                 let moon_x = moon_distance * moon_angle.cos();
                 let moon_z = moon_distance * moon_angle.sin();
-                let moon_translation = Vec3::new(moon_x, 0.0, moon_z) + position; // Posición relativa a Marte
-                uniforms.current_shader = 8;  // Shader de la luna
-                uniforms.model_matrix = create_model_matrix(moon_translation, moon_scale, Vec3::new(0.0, 0.0, 0.0));
-                render(&mut framebuffer, &uniforms, &moon_vertex_array, time as u32);
+                let moon_translation = Vec3::new(moon_x, 0.0, moon_z) + position;
+
+                // Verifica la luna de Marte también
+                if frustum.contains(moon_translation, moon_scale) {
+                    uniforms.current_shader = 8;
+                    uniforms.model_matrix = create_model_matrix(moon_translation, moon_scale, Vec3::new(0.0, 0.0, 0.0));
+                    render(&mut framebuffer, &uniforms, &moon_vertex_array, time as u32);
+                }
             } else if shaders[i] == 4 {  // Saturno con anillos
                 render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
+
                 // Anillos de Saturno
-                let ring_scale = scale * 1.5; // Escala de los anillos
-                uniforms.current_shader = 9;
-                uniforms.model_matrix = create_model_matrix(position, ring_scale, Vec3::new(0.0, 0.0, 0.0));
-                render(&mut framebuffer, &uniforms, &ring_vertex_array, time as u32);
+                let ring_scale = scale * 1.5;
+                let ring_position = position;  // La posición de los anillos es la misma que la de Saturno
+
+                // Verifica los anillos también
+                if frustum.contains(ring_position, ring_scale) {
+                    uniforms.current_shader = 9;
+                    uniforms.model_matrix = create_model_matrix(ring_position, ring_scale, Vec3::new(0.0, 0.0, 0.0));
+                    render(&mut framebuffer, &uniforms, &ring_vertex_array, time as u32);
+                }
             } else if shaders[i] == 7 { // Sol con efecto Bloom
                 render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
-                // Aplicar Gaussian Blur al buffer emisivo
-                let kernel_size = 10; // Tamaño del kernel para un desenfoque más suave
-                let sigma = 2.5; // Sigma para un buen efecto de bloom
+
+                // Gaussian Blur y Bloom solo si el Sol está visible
+                let kernel_size = 10;
+                let sigma = 2.5;
                 gaussian_blur(&mut framebuffer.emissive_buffer, framebuffer.width, framebuffer.height, kernel_size, sigma);
-                // Aplicar Bloom
                 apply_bloom(&mut framebuffer.buffer, &framebuffer.emissive_buffer, framebuffer.width, framebuffer.height);
             } else {
                 render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
             }
+           
         }
     
         framebuffer.set_current_color(0xFFDDDD);
