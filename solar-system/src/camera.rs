@@ -62,4 +62,11 @@ impl Camera {
     self.has_changed = true;
   }
   
+  // Método para cambiar a la vista aérea
+  pub fn bird_eye_view(&mut self, system_center: Vec3, height: f32) {
+    self.center = system_center;  // Centra la cámara sobre el centro del sistema
+    self.eye = Vec3::new(system_center.x, system_center.y + height, system_center.z);  // Posición elevada directamente sobre el centro
+    self.up = Vec3::new(0.0, 0.0, -1.0);  // Ajusta 'up' para mirar hacia abajo
+    self.has_changed = true;
+  }
 }

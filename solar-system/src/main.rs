@@ -354,7 +354,7 @@ fn main() {
 
     // camera parameters
     let mut camera = Camera::new(
-        Vec3::new(0.0, 5.0, 40.0),
+        Vec3::new(0.0, 50.0, 60.0),
         Vec3::new(22.5, 0.0, 0.0),
         Vec3::new(0.0, 1.0, 0.0)
     );
@@ -394,11 +394,11 @@ fn main() {
     let planet_positions = vec![
         Vec3::new(0.0, 0.0, 0.0),  // Sol
         Vec3::new(8.0, 0.0, 0.0),  // Mercurio
-        Vec3::new(15.0, 0.0, 0.0),  // Tierra
-        Vec3::new(25.0, 0.0, 0.0),  // Marte
-        Vec3::new(35.0, 0.0, 0.0), // Júpiter
-        Vec3::new(50.0, 0.0, 0.0), // Saturno
-        Vec3::new(65.0, 0.0, 0.0)  // Urano
+        Vec3::new(12.0, 0.0, 0.0),  // Tierra
+        Vec3::new(22.0, 0.0, 0.0),  // Marte
+        Vec3::new(33.0, 0.0, 0.0), // Júpiter
+        Vec3::new(45.0, 0.0, 0.0), // Saturno
+        Vec3::new(60.0, 0.0, 0.0)  // Urano
     ];
 
     let scales = vec![
@@ -414,24 +414,26 @@ fn main() {
     let orbital_speeds = vec![
         0.0,   // Sol (estático)
         0.5,  // Mercurio
-        0.3,  // Venus (asumiendo que quieres agregarlo, ajusta según sea necesario)
         0.2,  // Tierra
         0.1,  // Marte
         0.03,  // Júpiter
-        0.05, // Saturno
-        0.08  // Urano
+        0.04, // Saturno
+        0.05  // Urano
     ];
 
     // Definimos los shaders de cada planeta en el orden correcto
     let shaders = vec![7, 3, 1, 2, 5, 4, 6];
     let mut orbital_angles = vec![0.0; shaders.len()]; 
 
+    let system_center = Vec3::new(0.0, 0.0, 0.0);
+    let mut bird_eye_active = false; 
+
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let delta_time = last_frame_time.elapsed();
         last_frame_time = Instant::now();
         time += delta_time.as_millis() as u32;
     
-        handle_input(&window, &mut camera);
+        handle_input(&window, &mut camera, system_center, &mut bird_eye_active);
         framebuffer.clear();
 
         skybox.render(&mut framebuffer, &uniforms, camera.eye);
@@ -491,7 +493,7 @@ fn main() {
     }    
 }
 
-fn handle_input(window: &Window, camera: &mut Camera) {
+fn handle_input(window: &Window, camera: &mut Camera, system_center: Vec3, bird_eye_active: &mut bool) {
     let movement_speed = 1.0;
     let rotation_speed = PI/50.0;
     let zoom_speed = 0.1;
@@ -534,5 +536,22 @@ fn handle_input(window: &Window, camera: &mut Camera) {
     }
     if window.is_key_down(Key::Down) {
         camera.zoom(-zoom_speed);
+    }
+
+    // Cambio a vista aérea
+    // Alternar entre vista aérea y normal
+     if window.is_key_pressed(Key::B, minifb::KeyRepeat::No) {
+        if *bird_eye_active {
+            // Resetear la cámara a la posición y orientación normal
+            camera.eye = Vec3::new(0.0, 50.0, 40.0);
+            camera.center = Vec3::new(22.5, 0.0, 0.0);
+            camera.up = Vec3::new(0.0, 1.0, 0.0);
+            *bird_eye_active = false;
+        } else {
+            // Cambiar a vista aérea
+            camera.bird_eye_view(system_center, 100.0);
+            *bird_eye_active = true;
+        }
+        camera.has_changed = true;
     }
 }
