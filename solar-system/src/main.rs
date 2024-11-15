@@ -339,11 +339,15 @@ fn check_collision(camera_pos: Vec3, planet_pos: Vec3, planet_radius: f32) -> bo
     distance < (planet_radius + 25.0)  // margen de seguridad
 }
 
+fn create_ortho_projection(window_width: f32, window_height: f32) -> Mat4 {
+    nalgebra_glm::ortho(0.0, window_width, window_height, 0.0, -1.0, 1.0)
+}
+
 fn main() {
     let window_width = 680;
-    let window_height = 800;
+    let window_height = 700;
     let framebuffer_width = 680;
-    let framebuffer_height = 800;
+    let framebuffer_height = 700;
 
     let mut framebuffer = Framebuffer::new(framebuffer_width, framebuffer_height);
     let mut window = Window::new(
@@ -378,12 +382,14 @@ fn main() {
     let obj = Obj::load("assets/models/sphere.obj").expect("Failed to load obj");
     let moon = Obj::load("assets/models/moon.obj").expect("Failed to load obj");
     let ring_obj = Obj::load("assets/models/ring.obj").expect("Failed to load ring model");
+    let spaceship = Obj::load("assets/models/spaceship.obj").expect("Failed to load spaceship model");
 
     let skybox = Skybox::new(5000);
 
     let vertex_arrays = obj.get_vertex_array(); 
     let moon_vertex_array = moon.get_vertex_array();
     let ring_vertex_array = ring_obj.get_vertex_array();
+    let spaceship_vertex_array = spaceship.get_vertex_array();
 
     let mut last_frame_time = Instant::now();
     let mut time = 0;
@@ -444,6 +450,8 @@ fn main() {
     let system_center = Vec3::new(0.0, 0.0, 0.0);
     let mut bird_eye_active = false; 
 
+    let hud_camera_projection = create_ortho_projection(window_width as f32, window_height as f32);
+
     while window.is_open() && !window.is_key_down(Key::Escape) {
         let delta_time = last_frame_time.elapsed();
         last_frame_time = Instant::now();
@@ -452,18 +460,16 @@ fn main() {
         handle_input(&window, &mut camera, system_center, &mut bird_eye_active, &mut app_state);
         framebuffer.clear();
 
-        // Calcula matrices de vista y proyección
-        let view_matrix = create_view_matrix(camera.eye, camera.center, camera.up);
-        let projection_matrix = create_perspective_matrix(window_width as f32, window_height as f32);
-
-        // Crea el frustum con la matriz combinada de vista y proyección
-        let vp_matrix = projection_matrix * view_matrix;
+        
+        // Calcula matrices de vista y proyección para el sistema solar
+        uniforms.projection_matrix = create_perspective_matrix(window_width as f32, window_height as f32);
+        uniforms.view_matrix = create_view_matrix(camera.eye, camera.center, camera.up);
+        let vp_matrix = uniforms.projection_matrix * uniforms.view_matrix;
         let frustum = Frustum::from_matrix(&vp_matrix);
 
         // Verifica las colisiones antes de actualizar la posición de la cámara y renderizar los objetos
         for (planet_pos, planet_radius) in planet_positions.iter().zip(scales.iter()) {
             if check_collision(camera.eye, *planet_pos, *planet_radius) {
-                // Si hay colisión, reajustar la posición de la cámara
                 camera.prevent_collision(*planet_pos, *planet_radius);
             }
         }
@@ -525,6 +531,15 @@ fn main() {
                 }
             }
         }
+
+        // Cambia a la cámara ortográfica para renderizar la nave espacial en HUD
+        uniforms.projection_matrix = hud_camera_projection;
+        uniforms.view_matrix = Mat4::identity();
+        uniforms.model_matrix = create_model_matrix(Vec3::new(window_width as f32 / 2.0, window_height as f32 - 100.0, 0.0), 15.0, Vec3::new(0.0, 0.0, 0.0));
+
+        // Renderiza la nave espacial en el HUD
+        render(&mut framebuffer, &uniforms, &spaceship_vertex_array, time as u32, false);
+
     
         framebuffer.set_current_color(0xFFDDDD);
         window.update_with_buffer(&framebuffer.buffer, framebuffer_width, framebuffer_height).unwrap();
