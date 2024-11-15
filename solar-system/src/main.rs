@@ -294,7 +294,7 @@ fn blend_bloom(base_color: u32, bloom_intensity: u32) -> u32 {
     (new_r << 16) | (new_g << 8) | new_b
 }
 
-fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex], time: u32) {
+fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Vertex], time: u32, disable_culling: bool) {
     // Vertex Shader Stage
     let mut transformed_vertices = Vec::with_capacity(vertex_array.len());
     for vertex in vertex_array {
@@ -317,10 +317,9 @@ fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Ve
     // Rasterization Stage
     let mut fragments = Vec::new();
     for tri in &triangles {
-        fragments.extend(triangle(&tri[0], &tri[1], &tri[2]));
+        fragments.extend(triangle(&tri[0], &tri[1], &tri[2], disable_culling));
     }
 
-    // Fragment Processing Stage
     // Fragment Processing Stage
     for fragment in fragments {
         let x = fragment.position.x as usize;
@@ -494,7 +493,7 @@ fn main() {
                 uniforms.model_matrix = create_model_matrix(position, scale, rotation);
 
                 // Renderizado de planetas
-                render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
+                render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32, false);
 
                 // Renderizado condicional de lunas y anillos
                 if shaders[i] == 2 {  // Marte con luna
@@ -506,7 +505,7 @@ fn main() {
                     if frustum.contains(moon_translation, moon_scale) {
                         uniforms.current_shader = 8;
                         uniforms.model_matrix = create_model_matrix(moon_translation, moon_scale, Vec3::new(0.0, 0.0, 0.0));
-                        render(&mut framebuffer, &uniforms, &moon_vertex_array, time as u32);
+                        render(&mut framebuffer, &uniforms, &moon_vertex_array, time as u32, false);
                     }
                 } else if shaders[i] == 4 {  // Saturno con anillos
                     let ring_scale = scale * 1.5;
@@ -514,11 +513,11 @@ fn main() {
 
                     uniforms.current_shader = 9;
                     uniforms.model_matrix = create_model_matrix(ring_position, ring_scale, Vec3::new(0.0, 0.0, 0.0));
-                    render(&mut framebuffer, &uniforms, &ring_vertex_array, time as u32);
+                    render(&mut framebuffer, &uniforms, &ring_vertex_array, time as u32, true);
                    
                 } else if shaders[i] == 7 { // Sol con efecto Bloom
                     // Renderizar el Sol con efectos adicionales
-                    render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
+                    render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32, false);
                     let kernel_size = 10;
                     let sigma = 2.5;
                     gaussian_blur(&mut framebuffer.emissive_buffer, framebuffer.width, framebuffer.height, kernel_size, sigma);
@@ -536,7 +535,7 @@ fn handle_input(window: &Window, camera: &mut Camera, system_center: Vec3, bird_
     let movement_speed = 1.0;
     let rotation_speed = PI/50.0;
     let zoom_speed = 1.5;
-    let min_zoom_distance = 30.0; 
+    let min_zoom_distance = 25.0; 
 
     if let Some((mouse_x, mouse_y)) = window.get_mouse_pos(minifb::MouseMode::Pass) {
         if let Some((last_x, last_y)) = app_state.last_mouse_pos {
