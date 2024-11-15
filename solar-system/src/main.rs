@@ -337,7 +337,7 @@ fn render(framebuffer: &mut Framebuffer, uniforms: &Uniforms, vertex_array: &[Ve
 
 fn check_collision(camera_pos: Vec3, planet_pos: Vec3, planet_radius: f32) -> bool {
     let distance = (camera_pos - planet_pos).magnitude();
-    distance < (planet_radius + 5.0)  // 5.0 es un margen de seguridad
+    distance < (planet_radius + 25.0)  // margen de seguridad
 }
 
 fn main() {
@@ -486,51 +486,45 @@ fn main() {
             let z = orbit_radius * orbital_angles[i].sin();
             let position = Vec3::new(x, 0.0, z); // Asumiendo una órbita plana en el plano xz
 
-            uniforms.current_shader = shaders[i];
             let scale = scales[i];  // Usa la escala apropiada para cada planeta
-            uniforms.model_matrix = create_model_matrix(position, scale, rotation);
 
-            // Renderizado de planetas y lunas con condiciones específicas
-            if shaders[i] == 2 {  // Marte con luna
+            // Comprueba si el planeta está dentro del frustum antes de renderizar
+            if frustum.contains(position, scale) {
+                uniforms.current_shader = shaders[i];
+                uniforms.model_matrix = create_model_matrix(position, scale, rotation);
+
+                // Renderizado de planetas
                 render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
 
-                // Calcular y renderizar la luna de Marte
-                let moon_angle = time as f32 * moon_orbit_speed;
-                let moon_x = moon_distance * moon_angle.cos();
-                let moon_z = moon_distance * moon_angle.sin();
-                let moon_translation = Vec3::new(moon_x, 0.0, moon_z) + position;
+                // Renderizado condicional de lunas y anillos
+                if shaders[i] == 2 {  // Marte con luna
+                    let moon_angle = time as f32 * moon_orbit_speed;
+                    let moon_x = moon_distance * moon_angle.cos();
+                    let moon_z = moon_distance * moon_angle.sin();
+                    let moon_translation = Vec3::new(moon_x, 0.0, moon_z) + position;
 
-                // Verifica la luna de Marte también
-                if frustum.contains(moon_translation, moon_scale) {
-                    uniforms.current_shader = 8;
-                    uniforms.model_matrix = create_model_matrix(moon_translation, moon_scale, Vec3::new(0.0, 0.0, 0.0));
-                    render(&mut framebuffer, &uniforms, &moon_vertex_array, time as u32);
-                }
-            } else if shaders[i] == 4 {  // Saturno con anillos
-                render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
+                    if frustum.contains(moon_translation, moon_scale) {
+                        uniforms.current_shader = 8;
+                        uniforms.model_matrix = create_model_matrix(moon_translation, moon_scale, Vec3::new(0.0, 0.0, 0.0));
+                        render(&mut framebuffer, &uniforms, &moon_vertex_array, time as u32);
+                    }
+                } else if shaders[i] == 4 {  // Saturno con anillos
+                    let ring_scale = scale * 1.5;
+                    let ring_position = position;  // La posición de los anillos es la misma que la de Saturno
 
-                // Anillos de Saturno
-                let ring_scale = scale * 1.5;
-                let ring_position = position;  // La posición de los anillos es la misma que la de Saturno
-
-                // Verifica los anillos también
-                if frustum.contains(ring_position, ring_scale) {
                     uniforms.current_shader = 9;
                     uniforms.model_matrix = create_model_matrix(ring_position, ring_scale, Vec3::new(0.0, 0.0, 0.0));
                     render(&mut framebuffer, &uniforms, &ring_vertex_array, time as u32);
+                   
+                } else if shaders[i] == 7 { // Sol con efecto Bloom
+                    // Renderizar el Sol con efectos adicionales
+                    render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
+                    let kernel_size = 10;
+                    let sigma = 2.5;
+                    gaussian_blur(&mut framebuffer.emissive_buffer, framebuffer.width, framebuffer.height, kernel_size, sigma);
+                    apply_bloom(&mut framebuffer.buffer, &framebuffer.emissive_buffer, framebuffer.width, framebuffer.height);
                 }
-            } else if shaders[i] == 7 { // Sol con efecto Bloom
-                render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
-
-                // Gaussian Blur y Bloom solo si el Sol está visible
-                let kernel_size = 10;
-                let sigma = 2.5;
-                gaussian_blur(&mut framebuffer.emissive_buffer, framebuffer.width, framebuffer.height, kernel_size, sigma);
-                apply_bloom(&mut framebuffer.buffer, &framebuffer.emissive_buffer, framebuffer.width, framebuffer.height);
-            } else {
-                render(&mut framebuffer, &uniforms, &vertex_arrays, time as u32);
             }
-           
         }
     
         framebuffer.set_current_color(0xFFDDDD);
@@ -542,7 +536,7 @@ fn handle_input(window: &Window, camera: &mut Camera, system_center: Vec3, bird_
     let movement_speed = 1.0;
     let rotation_speed = PI/50.0;
     let zoom_speed = 1.5;
-    let min_zoom_distance = 25.0; 
+    let min_zoom_distance = 30.0; 
 
     if let Some((mouse_x, mouse_y)) = window.get_mouse_pos(minifb::MouseMode::Pass) {
         if let Some((last_x, last_y)) = app_state.last_mouse_pos {

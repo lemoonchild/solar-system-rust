@@ -1,4 +1,4 @@
-use nalgebra_glm::{Vec3, dot, Vec2};
+use nalgebra_glm::{cross, dot, Vec2, Vec3};
 use crate::fragment::Fragment;
 use crate::vertex::Vertex;
 use crate::color::Color;
@@ -7,10 +7,19 @@ pub fn triangle(v1: &Vertex, v2: &Vertex, v3: &Vertex) -> Vec<Fragment> {
   let mut fragments = Vec::new();
   let (a, b, c) = (v1.transformed_position, v2.transformed_position, v3.transformed_position);
 
+  // Calcular la normal del triángulo para backface culling
+  let edge1 = b - a;
+  let edge2 = c - a;
+  let normal = cross(&edge1, &edge2);
+
+  // Backface culling
+  if normal.z <= 0.0 {
+      return fragments; // Retorna un vector vacío si el triángulo está de espaldas
+  }
+
   let (min_x, min_y, max_x, max_y) = calculate_bounding_box(&a, &b, &c);
 
   let light_dir = Vec3::new(0.0, 0.0, 1.0);
-
   let triangle_area = edge_function(&a, &b, &c);
 
   // Iterate over each pixel in the bounding box
