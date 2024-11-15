@@ -51,6 +51,7 @@ fn create_noise(current_shader: u8) -> FastNoiseLite {
         6 => create_urano_noise(), 
         8 => create_moon_noise(),
         9 => FastNoiseLite::new(),
+        10 => create_spaceship_noise(),
         _ => create_earth_noise(),  
     }
 }
@@ -141,13 +142,16 @@ fn create_urano_noise() -> FastNoiseLite {
     noise
 }
 
-fn calculate_orbit_position(time: f32, orbit_speed: f32, orbit_radius: f32) -> Vec3 {
-    let angle = time * orbit_speed;
-    Vec3::new(
-        orbit_radius * angle.cos(),
-        0.0,  // Asumiendo una órbita plana para simplificar
-        orbit_radius * angle.sin()
-    )
+
+fn create_spaceship_noise() -> FastNoiseLite {
+    let mut noise = FastNoiseLite::with_seed(2021);
+    noise.set_noise_type(Some(NoiseType::Perlin));
+    noise.set_fractal_type(Some(FractalType::Ridged));
+    noise.set_fractal_octaves(Some(4));
+    noise.set_fractal_lacunarity(Some(2.0));
+    noise.set_fractal_gain(Some(0.4));
+    noise.set_frequency(Some(0.5));
+    noise
 }
 
 fn create_model_matrix(translation: Vec3, scale: f32, rotation: Vec3) -> Mat4 {
@@ -537,6 +541,7 @@ fn main() {
         uniforms.view_matrix = Mat4::identity();
         uniforms.model_matrix = create_model_matrix(Vec3::new(window_width as f32 / 2.0, window_height as f32 - 100.0, 0.0), 15.0, Vec3::new(0.0, 0.0, 0.0));
 
+        uniforms.current_shader = 10;
         // Renderiza la nave espacial en el HUD
         render(&mut framebuffer, &uniforms, &spaceship_vertex_array, time as u32, false);
 

@@ -75,7 +75,7 @@ impl Camera {
 
   pub fn prevent_collision(&mut self, planet_pos: Vec3, planet_radius: f32) {
     let direction = (self.eye - planet_pos).normalize();
-    self.eye = planet_pos + direction * (planet_radius + 30.0); // Un margen de seguridad
+    self.eye = planet_pos + direction * (planet_radius + 25.0); // Un margen de seguridad
     self.has_changed = true;  // Asumiendo que necesitas ajustar la matriz de vista después de esto
   }
 

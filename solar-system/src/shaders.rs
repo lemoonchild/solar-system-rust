@@ -55,6 +55,7 @@ pub fn fragment_shader(fragment: &Fragment, uniforms: &Uniforms, time: u32) -> (
       7 => sun_shader(),
       8 => moon_shader(fragment, uniforms),
       9 => ring_shader(fragment),
+      10 => spaceship_shader(fragment, uniforms),
       _ => (Color::new(0, 0, 0), 0), // Color por defecto si no hay un shader definido
   }
 }
@@ -423,3 +424,34 @@ fn sun_shader() -> (Color, u32) {
 
   (base_color, emission)
 }
+
+fn spaceship_shader(fragment: &Fragment, uniforms: &Uniforms) -> (Color, u32) {
+  // Definir los colores base
+  let purple = Color::from_float(0.5, 0.0, 0.5);  // Morado
+  let green = Color::from_float(0.0, 0.5, 0.0);   // Verde
+
+  // Obtener un valor de ruido basado en la posición del fragmento
+  let noise_value = uniforms.noise.get_noise_3d(
+      fragment.vertex_position.x * 0.5,
+      fragment.vertex_position.y * 0.5,
+      fragment.vertex_position.z * 0.5,
+  );
+
+  // Normalizar el valor del ruido para usarlo como factor de mezcla
+  let lerp_value = (noise_value + 1.0) * 0.5;  // Normalizar a rango [0, 1]
+
+  // Realizar la interpolación lineal entre los dos colores
+  let ship_color = green.lerp(&purple, lerp_value);
+
+  // Iluminación básica (opcional)
+  let light_position = Vec3::new(1.0, 1.0, 1.0);  // Posición de la luz
+  let light_dir = (light_position - fragment.vertex_position).normalize();
+  let normal = fragment.normal.normalize();
+  let diffuse = normal.dot(&light_dir).max(0.0);
+
+  // Combinar el color con iluminación
+  let lit_color = ship_color * (0.3 + 0.7 * diffuse);  // Mezclar iluminación difusa
+
+  (lit_color, 0)  // Devolver el color calculado
+}
+
