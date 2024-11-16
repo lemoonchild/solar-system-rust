@@ -33,7 +33,7 @@ This project is a 3D simulation of a solar system developed in **Rust**, featuri
 
 
 ## 🎥 Demonstration Video
-
+Link to the video: https://youtu.be/j_mEIh4oLpM 
 
 ## 📝 Additional Notes
 - This project includes implementations of **frustum culling** and **backface culling** for rendering optimization.
